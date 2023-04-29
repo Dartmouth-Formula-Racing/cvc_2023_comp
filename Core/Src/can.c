@@ -16,11 +16,14 @@
   *
   ******************************************************************************
   */
+
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "can.h"
 
 /* USER CODE BEGIN 0 */
+#include "adc.h"
+#include "cmsis_os.h"
 
 /* USER CODE END 0 */
 
@@ -158,11 +161,22 @@ HAL_StatusTypeDef canTestLoop(void) {
 	header.DLC = 2;
 
 	// Data to be sent.
-	data[0] = 0x55;
-	data[1] = 0xaa;
+//	data[0] = 0x55;
+//	data[1] = 0xaa;
+
+	uint32_t reading;
+	HAL_ADC_Start(&hadc1);
 
 	// Forever
 	while (1) {
+
+		HAL_ADC_PollForConversion(&hadc1, 5);
+		reading = HAL_ADC_GetValue(&hadc1);
+
+		data[0] = (uint8_t) (reading & 0x000F);
+		data[1] = (uint8_t) (reading & 0x00F0 >> 8);
+		data[2] = (uint8_t) (reading & 0x0F00 >> 16);
+		data[3] = (uint8_t) (reading & 0xF000 >> 24);
 
 		while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) != 3) {}
 
@@ -170,6 +184,8 @@ HAL_StatusTypeDef canTestLoop(void) {
 		if (HAL_CAN_AddTxMessage(&hcan1, &header, data, &mbox) != HAL_OK) {
 			Error_Handler();
 		}
+
+		osDelay(10);
 
 		// Check the button (not debounced, will very likely send
 		//  multiple copies of the message.
